@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Srodowiska wirtualne
+.venv/
+venv/
+env/
+
+# Lokalne dane i wyniki eksperymentow
+/Data/
+/outputs/
+/work/
+/archiwum_modeli*/
+
+# Ustawienia edytorow i systemu
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Sekrety i pliki tymczasowe
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.bak
+*~
