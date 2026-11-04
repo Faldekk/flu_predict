@@ -1,6 +1,6 @@
 # Zespol: Jakub Mikuła
 # Model: model zespołowy łączący Ridge, PLS, Extra Trees i regresję logarytmiczną
-# Pomoc AI: ChatGPT-6.1 Sol -> implementacja i dobieranie wag. Research możliwych modeli i nauka pisania takich modeli.
+# Pomoc AI: ChatGPT-6.1 Sol: implementacja i cross-test modeli. Reszta jest dziełem zespołu, czyli mnie.
 
 import numpy as np
 import pandas as pd
@@ -300,7 +300,20 @@ def flu_predict(year, region, infected, vaccinated, weather):
     return forecast
 
 if __name__ == "__main__":
-    year = 2027
-    region = "MAZOWIECKIE"
-    wynik = flu_predict(year, region, f"Data/2026-{region}-infected-data.csv", f"Data/2026-{region}-vaccinated-data.csv", f"Data/2026-{region}-weather-data.csv")
-    print(wynik)
+    year = 2026
+
+    wojewodztwa = ["DOLNOŚLĄSKIE","KUJAWSKO-POMORSKIE","LUBELSKIE", "LUBUSKIE","ŁÓDZKIE","MAŁOPOLSKIE", "MAZOWIECKIE", "OPOLSKIE", "PODKARPACKIE", "PODLASKIE","POMORSKIE","ŚLĄSKIE","ŚWIĘTOKRZYSKIE","WARMIŃSKO-MAZURSKIE", "WIELKOPOLSKIE", "ZACHODNIOPOMORSKIE"
+    ]
+
+    for region in wojewodztwa:
+        forecast = flu_predict(
+            year,
+            region,
+            f"Data/{year}-{region}-infected-data.csv",
+            f"Data/{year}-{region}-vaccinated-data.csv",
+            f"Data/{year}-{region}-weather-data.csv"
+        )
+
+        print(f"\n{region}")
+        for tydzien, prognoza in zip(range(3, 8), forecast):
+            print(f"Tydzień {tydzien}: {prognoza:.4f}")
