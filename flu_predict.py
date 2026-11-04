@@ -1,25 +1,20 @@
-# Zespol: Jakub Mikula
-# Model: Dzielo nieprzespanych nocy. Pomoc AI: ChatGPT.
-# Jawne parametry; historia e-Zdrowie i Open-Meteo, lokalne CSV priorytetowe.
-# Trening etykiety do 2026-02-09; alpha=10.0, tau=10.0.
+# Zespol: Jakub Mikuła
+# Model: model zespołowy łączący Ridge, PLS, Extra Trees i regresję logarytmiczną
+# Pomoc AI: ChatGPT-6.1 Sol -> implementacja i dobieranie wag. Research możliwych modeli i nauka pisania takich modeli.
+
+import numpy as np
+import pandas as pd
+from datetime import date
 
 def flu_predict(year, region, infected, vaccinated, weather):
-    # Parametry i funkcje pomocnicze sa wewnatrz tej funkcji.
 
     import numpy as np
-
     import pandas as pd
-
     from datetime import date
 
     DOMYSLNE_CECHY = [3.76358,3.3787,0.09737,-0.0383,11.02918,0.59393,0.10461,0.5269,0.0,3.74583,84.11607,-1.28036,-0.37336,0.73584]
 
-    PROGNOZY_AWARYJNE = {'DOLNOŚLĄSKIE': [212.14265,392.45042,452.90073,312.3596,178.02357],'KUJAWSKO-POMORSKIE': [162.02811,282.74033,337.12631,284.35805,227.17317],'LUBELSKIE': [203.67232,380.95844,468.98758,413.70939,328.11089],'LUBUSKIE': [109.50856,200.85318,272.24898,275.55628,263.16701],'ŁÓDZKIE': [251.97211,425.22057,526.12661,411.65501,257.87584],'MAŁOPOLSKIE': [201.36814,278.96143,338.70413,262.26059,181.49813],'MAZOWIECKIE': [199.96642,304.99343,301.41275,230.45361,234.51109],'OPOLSKIE': [206.10563,355.33022,448.05336,313.7946,173.1374],'PODKARPACKIE': [151.92115,232.67617,309.65375,268.17448,208.24384],'PODLASKIE': [155.78738,286.7236,263.87657,187.14082,231.32066],'POMORSKIE': [125.28942,204.86368,253.71595,245.86238,289.54384],'ŚLĄSKIE': [231.49509,401.19628,522.1072,473.41209,386.09878],'ŚWIĘTOKRZYSKIE': [171.83801,217.58625,174.57249,161.8116,230.86799],'WARMIŃSKO-MAZURSKIE': [112.3709,205.47715,225.04105,170.16485,198.81868],'WIELKOPOLSKIE': [171.92107,310.62795,370.10928,359.25727,324.69755],'ZACHODNIOPOMORSKIE': [107.33989,254.95588,397.68706,285.58841,200.87624]}
-
-    PROGNOZA_OGOLNA = [145.52967,288.93405,362.46724,269.675,239.43288]
-
-    PLS = [
-     [[[0.12149,0.009637202645814063,1.86076,-0.20422,0.0545,0.20361,2.37331,0.58908,28214.18236],[0.045824920705844284,-0.0724,2.085,-0.04655,0.11883,-0.38407,0.63218,-0.12124,39323.78003],[-0.03527,-0.14851,2.08382,0.15352,0.17167,-0.92622,-1.86859,-1.11298,45274.36116],[-0.07778,-0.15368,1.4149,0.2931,0.15331,-0.97802,-3.97601,-1.86098,33250.59498],[-0.08066,-0.08673,0.165,0.2492,0.0657,-0.58542,-3.38864,-1.39876,8154.17682]],[2.26782,3.65509,5.09299,6.35324,6.93901]],
+    PLS = [[[[0.12149,0.009637202645814063,1.86076,-0.20422,0.0545,0.20361,2.37331,0.58908,28214.18236],[0.045824920705844284,-0.0724,2.085,-0.04655,0.11883,-0.38407,0.63218,-0.12124,39323.78003],[-0.03527,-0.14851,2.08382,0.15352,0.17167,-0.92622,-1.86859,-1.11298,45274.36116],[-0.07778,-0.15368,1.4149,0.2931,0.15331,-0.97802,-3.97601,-1.86098,33250.59498],[-0.08066,-0.08673,0.165,0.2492,0.0657,-0.58542,-3.38864,-1.39876,8154.17682]],[2.26782,3.65509,5.09299,6.35324,6.93901]],
      [[[0.12395,0.015277396461169117,1.61277,-0.11674,0.1117,-0.37249,2.96202,0.65752,11704.95324],[0.0194,-0.08429,1.69344,0.02713,0.13989,-0.44663,0.70501,-0.13712,15897.46931],[-0.07258,-0.16671,1.64314,0.21584,0.17546,-0.62997,-2.09059,-1.18035,21719.0504],[-0.05114,-0.13429,1.31715,0.3819,0.20894,-1.00076,-4.13749,-2.09989,28162.8819],[-0.001447071442282777,-0.04377,0.54496,0.31964,0.14254,-0.83461,-3.5378,-1.76149,20477.60966]],[2.00024,3.8947,5.5052,5.8202,5.74893]],
      [[[0.10603,-0.005154251042658156,1.92154,-0.16819,0.08787,-0.04672,2.75948,0.33492,13655.41753],[0.04582,-0.07156,2.01889,0.004926598645933694,0.15628,-0.58344,0.7572,-0.33449,25778.37312],[-0.01181,-0.13324,2.06061,0.20711,0.21647,-1.03471,-1.971,-1.29707,34302.96242],[-0.04051,-0.13953,1.63689,0.33125,0.20197,-0.99863,-4.26096,-2.04853,28192.18406],[-0.03976,-0.07732,0.57774,0.27159,0.09575,-0.4795,-4.09002,-1.71322,9702.59997]],[2.31198,3.56429,4.69922,5.68602,6.3925]],
      [[[0.06157,-0.008767214153017764,1.56447,-0.24003,0.07022,0.58588,3.47669,0.97726,28446.00311],[0.00950352045616509,-0.08478,1.90296,-0.04331,0.15035,0.51408,0.98252,-0.17882,39080.41151],[-0.05867,-0.18482,2.34683,0.22059,0.26984,0.26341,-2.10458,-1.60432,55705.0155],[-0.08932,-0.18494,1.63843,0.3521,0.26888,-0.31375,-3.47173,-1.9341,48212.58716],[-0.05726,-0.06236,-0.07923,0.23661,0.09263,-0.65242,-2.34372,-0.92412,10120.27097]],[1.98915,3.08276,3.78425,4.77916,6.22774]],
@@ -58,11 +53,9 @@ def flu_predict(year, region, infected, vaccinated, weather):
      [[[0.08068,-0.027163388530367826,1.75346,-0.19281,0.08413,0.16373,3.51733,0.62016,17093.56408],[0.04791,-0.07234,1.88394,-0.0433,0.15109,-0.32175,1.47457,-0.28129,20166.84158],[-0.0011946172465009685,-0.1272,1.88728,0.1635,0.22932,-0.96746,-1.40503,-1.46537,22762.8415],[-0.04506500066596044,-0.14459,1.41671,0.30342,0.24723,-1.37837,-3.42858,-2.06654,20830.06404],[-0.05482,-0.09112,0.45357,0.25333,0.15686,-1.16732,-2.88668,-1.3739,12663.44789]],[2.22314,3.36662,4.51809,5.44649,5.98708]],
      [[[0.05465,-0.02165,1.79761,-0.16316,0.14063,0.005655097756935271,2.9588,0.77072,26142.91368],[0.01364,-0.08048,2.08183,0.008966853970998083,0.19779,-0.05437,0.49361,-0.30255,29693.10102],[-0.04177,-0.16734,2.59652,0.28162,0.31687,-0.39852,-2.96523,-1.83088,40858.53946],[-0.06741,-0.16845,1.94959,0.42332,0.31769,-0.83141,-4.56093,-2.31542,38774.78539],[-0.0453354377087765,-0.06012,0.14229,0.26408,0.10916,-0.62629,-2.93698,-1.21895,11365.21155]],[1.74493,2.92686,3.64312,4.59302,6.09896]],
      [[[0.11666,0.007339038753413687,1.74878,-0.203,0.05694,0.22394,2.74087,0.68073,18516.19554],[0.0416,-0.07372,1.85235,-0.03264637264739905,0.1179,-0.34988,0.83559,-0.05732,26365.0703],[-0.04436,-0.15529,1.78575,0.16611,0.16991,-0.89296,-1.55062,-0.95334,31421.23414],[-0.09455,-0.17769,1.33445,0.28476,0.16241,-0.98423,-3.26892,-1.53442,26162.14707],[-0.08479,-0.11316,0.45107,0.23654,0.08473,-0.59486,-2.96894,-1.24651,10946.92365]],[2.23258,3.75891,5.23803,6.26667,6.64104]],
-     [[[0.13593,0.030953258972451263,1.88847,-0.1582,0.06068,0.05612,2.30978,0.21435,34501.67751],[0.05323,-0.04694,1.88006,0.007730910024857962,0.1497,-0.58748,0.49538,-0.38403,46922.51394],[-0.03781,-0.12673,1.73494,0.22009,0.23732,-1.2168,-2.12785,-1.28192,55714.25531],[-0.0625,-0.1316,1.3172,0.35394,0.23138,-1.16787,-4.46824,-2.14166,44651.2257],[-0.04402,-0.0646,0.35602,0.26811,0.10637,-0.50764,-3.89649,-1.69112,13422.64704]],[2.35369,3.58234,4.78673,5.71126,6.29709]]
-    ]
+     [[[0.13593,0.030953258972451263,1.88847,-0.1582,0.06068,0.05612,2.30978,0.21435,34501.67751],[0.05323,-0.04694,1.88006,0.007730910024857962,0.1497,-0.58748,0.49538,-0.38403,46922.51394],[-0.03781,-0.12673,1.73494,0.22009,0.23732,-1.2168,-2.12785,-1.28192,55714.25531],[-0.0625,-0.1316,1.3172,0.35394,0.23138,-1.16787,-4.46824,-2.14166,44651.2257],[-0.04402,-0.0646,0.35602,0.26811,0.10637,-0.50764,-3.89649,-1.69112,13422.64704]],[2.35369,3.58234,4.78673,5.71126,6.29709]]]
 
-    DRZEWA = [
-     [6,0.11,[6,0.09077,[1,4.23046,[4.88417,5.55252,6.00953,5.89795,5.40774],[4.56352,5.08955,5.08873,5.19133,5.65875]],[6,0.10141,[4.92498,5.71394,6.20835,6.15091,5.84123],[5.08427,5.62596,5.75047,5.5218,5.34422]]],[1,5.34625,[0,4.13925,[4.8646,5.4818,5.65259,5.45535,5.4539],[5.53951,5.96728,5.90919,5.52638,5.30896]],[4.97778,5.04086,4.85478,4.6543,4.85686]]],
+    DRZEWA = [[6,0.11,[6,0.09077,[1,4.23046,[4.88417,5.55252,6.00953,5.89795,5.40774],[4.56352,5.08955,5.08873,5.19133,5.65875]],[6,0.10141,[4.92498,5.71394,6.20835,6.15091,5.84123],[5.08427,5.62596,5.75047,5.5218,5.34422]]],[1,5.34625,[0,4.13925,[4.8646,5.4818,5.65259,5.45535,5.4539],[5.53951,5.96728,5.90919,5.52638,5.30896]],[4.97778,5.04086,4.85478,4.6543,4.85686]]],
      [0,5.55171,[6,0.09658,[4,11.92867,[4.81701,5.48904,5.81506,5.76205,5.60783],[4.86139,5.65972,6.19714,6.27641,6.08429]],[2,0.50042,[5.06232,5.62232,5.75867,5.51167,5.35652],[5.57855,5.98815,5.88572,5.50564,5.34223]]],[4.97778,5.04086,4.85478,4.6543,4.85686]],
      [2,0.42033,[4,11.94948,[6,0.13363,[4.64585,5.22141,5.424,5.39541,5.50426],[5.47158,5.75522,5.58008,5.21262,5.11501]],[8,5.187899e-06,[5.01263,5.72609,6.22057,6.18338,5.81814],[4.98274,5.61363,5.76964,5.64315,5.51326]]],[6,0.09601,[6,0.08725,[4.93138,5.65213,6.10615,5.90158,5.29427],[5.23078,5.90777,6.33385,6.18299,5.721]],[3,-0.99194,[5.45572,5.8073,5.65117,5.20257,5.06023],[5.43591,5.92279,5.92066,5.58214,5.41414]]]],
      [6,0.10188,[3,-0.34198,[4,11.41793,[4.99835,5.63381,5.85815,5.73371,5.57829],[4.8786,5.69432,6.2019,6.10334,5.71929]],[5,0.59207,[4.68442,5.39793,5.93722,6.04467,5.82949],[4.56802,5.02048,5.04324,5.18305,5.62826]]],[2,0.59009,[7,0.58283,[4.99645,5.48236,5.58766,5.37142,5.29735],[5.59074,6.03982,6.03038,5.53906,5.06538]],[1,4.90636,[5.5773,6.07028,5.97548,5.58982,5.4562],[5.62144,5.84755,5.62018,5.29099,5.25367]]]],
@@ -165,58 +158,67 @@ def flu_predict(year, region, infected, vaccinated, weather):
     ]
 
     RIDGE = [[[0.13741,0.029934310075363187,0.6598,0.14369,-0.016326894151141424,-1.21699,-1.45348,1.43821,2159.32824,-0.08739,-0.02272328745682652,-0.06972,0.10569,1.40298],[0.0442,0.11755,-0.11878,-0.15566,0.0027630211389028116,-1.33019,-1.80637,1.4663,821.06136,0.036195882382112785,0.008118026750234464,-0.06497,0.42674,2.68216],[-0.03784,0.1418,-0.3059,-0.29725,-0.023005901035144553,-2.02872,-3.64162,0.89918,553.62247,0.09175,0.01754,0.006212813464176228,0.76807,3.47378],[-0.12499,0.03076378733925784,0.05011,-0.23569,0.06111,-1.556,0.21452,-0.35434,214.50714,0.06849,0.011878436488117337,0.04712,0.46956,3.71706],[-0.04946,-0.1354,0.2063,-0.08479,0.11905,-1.1175,1.22001,-1.4706,2686.9748,-0.03986,0.01298,0.045805311809307754,0.07737,3.00179]],[4.86205,1.16498,1.35075,1.546,2.19294]]
-
     LOGARYTM = [[[-69.55772,125.8004],[-124.84569,157.22465],[-121.07976,88.94254],[-54.44525,7.48652],[4.01965,-36.98695]],[-22.63798,214.08774,524.68224,495.77801,372.97247]]
-
     UDZIAL_RIDGE = 0.5
-
     SKALA = 0.98
 
     def przygotuj_cechy(year, infected, vaccinated, weather):
+        
         cechy = np.array(DOMYSLNE_CECHY, dtype=float)
+        
         if infected is None:
             return None
+        
         try:
             dane = pd.read_csv(infected).sort_values(["Rok", "Numer tygodnia"])
+            
             zachorowania = pd.to_numeric(dane["Liczba przypadków na 100k"], errors="coerce").to_numpy(float)
+            
             tygodnie = dane["Numer tygodnia"].to_numpy(int)
-            if (zachorowania.shape != (4,) or not np.isfinite(zachorowania).all() or (zachorowania < 0).any()
-                    or not dane["Rok"].eq(year - 1).all() or not (np.diff(tygodnie) == 1).all()):
+            
+            if (zachorowania.shape != (4,) or not np.isfinite(zachorowania).all() or (zachorowania < 0).any() or not dane["Rok"].eq(year - 1).all() or not (np.diff(tygodnie) == 1).all()):
                 return None
+            
             tydzien = int(tygodnie[-1])
             date.fromisocalendar(year - 1, tydzien, 1)
             log_zachorowan = np.log1p(zachorowania)
             tempa = np.diff(log_zachorowan)
             cechy[:4] = [log_zachorowan[-1], np.log1p(zachorowania.mean()), (log_zachorowan[-1] - log_zachorowan[0]) / 3, tempa[-1] - tempa[-2]]
+        
         except Exception:
             return None
-        # Szczepienia: liczba, wiek i udzial miesiecy.
+
         if vaccinated is not None:
+
             try:
                 dane = pd.read_csv(vaccinated)
                 liczby = pd.to_numeric(dane["Liczba zaszczepionych"], errors="coerce").to_numpy(float)
                 miesiace = pd.to_datetime(dane["Miesiąc"], errors="coerce").dt.month.to_numpy()
                 wiek = pd.to_numeric(dane["Kategoria wiekowa"].astype(str).str.extract(r"^(\d+)")[0], errors="coerce").to_numpy(float)
                 suma = liczby.sum()
+                
                 if np.isfinite(liczby).all() and (liczby >= 0).all() and suma > 0:
-                    cechy[4:9] = [np.log1p(suma), liczby[wiek >= 65].sum() / suma,
-                        liczby[miesiace == 11].sum() / suma, liczby[miesiace >= 10].sum() / suma,
-                        liczby[~np.isfinite(wiek)].sum() / suma]
+                    cechy[4:9] = [np.log1p(suma), liczby[wiek >= 65].sum() / suma, liczby[miesiace == 11].sum() / suma, liczby[miesiace >= 10].sum() / suma,liczby[~np.isfinite(wiek)].sum() / suma]
+                    
             except Exception:
                 pass
-        # Pogoda: temperatura, wilgotnosc i zmiana temperatury.
+
         if weather is not None:
             try:
+                
                 dane = pd.read_csv(weather).sort_values("time")
                 temperatura = pd.to_numeric(dane["temperature_2m (°C)"], errors="coerce").to_numpy(float)
                 wilgotnosc = pd.to_numeric(dane["relative_humidity_2m (%)"], errors="coerce").to_numpy(float)
-                if (len(temperatura) == 672 and np.isfinite(temperatura).all() and np.isfinite(wilgotnosc).all()
-                        and (temperatura > -100).all() and ((wilgotnosc >= 0) & (wilgotnosc <= 100)).all()):
+                
+                if (len(temperatura) == 672 and np.isfinite(temperatura).all() and np.isfinite(wilgotnosc).all() and (temperatura > -100).all() and ((wilgotnosc >= 0) & (wilgotnosc <= 100)).all()):
                     cechy[9:12] = [temperatura.mean(), wilgotnosc.mean(), temperatura[-168:].mean() - temperatura[:168].mean()]
+            
             except Exception:
                 pass
+
         kat = 2 * np.pi * (tydzien - 1) / 52.1775
         cechy[12:14] = [np.sin(kat), np.cos(kat)]
+
         return cechy
 
     def policz_rownanie(model, cechy):
@@ -228,67 +230,77 @@ def flu_predict(year, region, infected, vaccinated, weather):
         return np.maximum(0, np.expm1(wynik))
 
     def przejdz_drzewo(drzewo, cechy):
-        # Wezel: numer cechy, prog, lewa i prawa galaz.
         while len(drzewo) == 4:
+            
             numer, prog, lewa, prawa = drzewo
+            
             if float(np.float32(cechy[numer])) <= prog:
                 drzewo = lewa
             else:
                 drzewo = prawa
+        
         return np.array(drzewo, dtype=float)
 
     def prognoza_duetu(cechy):
+        
         prognozy_pls = []
+
         for model in PLS:
             wynik = policz_rownanie(model, cechy[:9])
             prognozy_pls.append(cofnij_logarytm(wynik))
+        
         pls = np.mean(prognozy_pls, axis=0)
 
         prognozy_drzew = []
+        
         for drzewo in DRZEWA:
             wynik = przejdz_drzewo(drzewo, cechy[:9])
             prognozy_drzew.append(wynik)
-        # W drzewach usredniamy przed cofnieciem logarytmu.
+
         srednia = np.mean(prognozy_drzew, axis=0)
+        
         drzewa = np.maximum(0, np.expm1(srednia))
+        
         return 0.9 * pls + 0.1 * drzewa
 
     def prognoza_logarytmiczna(infected):
         dane = pd.read_csv(infected).sort_values(["Rok", "Numer tygodnia"])
+
         zachorowania = dane["Liczba przypadków na 100k"].to_numpy(float)
+
         srednia = zachorowania.mean()
+
         zmiana = zachorowania[2:].mean() - zachorowania[:2].mean()
-        cechy = np.array([
-            np.log1p(srednia),
-            np.sign(zmiana) * np.log1p(abs(zmiana))
-        ])
+
+        cechy = np.array([np.log1p(srednia),np.sign(zmiana) * np.log1p(abs(zmiana))])
+        
         wynik = policz_rownanie(LOGARYTM, cechy)
+        
         return np.maximum(0, wynik)
 
-    # Argumenty maja nazwy wymagane przez konkurs.
     region = str(region).upper()
     cechy = przygotuj_cechy(year, infected, vaccinated, weather)
 
-    if cechy is None:
-        wynik = PROGNOZY_AWARYJNE.get(region, PROGNOZA_OGOLNA)
-    else:
-        duet = prognoza_duetu(cechy)
-        logarytmiczna = prognoza_logarytmiczna(infected)
+    duet = prognoza_duetu(cechy)
+    logarytmiczna = prognoza_logarytmiczna(infected)
 
-        # Domieszka regresji osobno dla kazdego tygodnia.
-        wagi = np.array([0.2, 0.2, 0.05, 0.05, 0.05])
-        mieszanka = (1 - wagi) * duet + wagi * logarytmiczna
+    wagi = np.array([0.2, 0.2, 0.05, 0.05, 0.05])
+    mieszanka = (1 - wagi) * duet + wagi * logarytmiczna
 
-        ridge = policz_rownanie(RIDGE, cechy)
-        ridge = cofnij_logarytm(ridge)
+    ridge = policz_rownanie(RIDGE, cechy)
+    ridge = cofnij_logarytm(ridge)
 
-        # Laczymy oba wyniki i poprawiamy skale.
-        wynik = (1 - UDZIAL_RIDGE) * mieszanka + UDZIAL_RIDGE * ridge
-        wynik = SKALA * wynik
+    wynik = (1 - UDZIAL_RIDGE) * mieszanka + UDZIAL_RIDGE * ridge
+    wynik = SKALA * wynik
 
     forecast = []
     for liczba in wynik:
         forecast.append(float(max(0, liczba)))
 
-    print(forecast)
     return forecast
+
+if __name__ == "__main__":
+    year = 2027
+    region = "MAZOWIECKIE"
+    wynik = flu_predict(year, region, f"Data/2026-{region}-infected-data.csv", f"Data/2026-{region}-vaccinated-data.csv", f"Data/2026-{region}-weather-data.csv")
+    print(wynik)
